@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aura Cafe - 스마트 자동문</title>
+    <style>
+        /* 기본 스타일 및 배경 */
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #e2dfd8; /* 이미지와 비슷한 배경색 */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+        }
+
+        /* 카페 외관 컨테이너 */
+        #cafe-facade {
+            width: 900px;
+            height: 500px;
+            background-color: #f4eee1;
+            border-radius: 20px;
+            box-shadow: 0 15px 30px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            box-sizing: border-box;
+            position: relative;
+        }
+
+        /* 간판 부분 */
+        #signage {
+            text-align: center;
+            font-size: 32px;
+            font-weight: bold;
+            color: #4a4036;
+            margin-bottom: 20px;
+            background-color: #eae3d5;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: inset 0 2px 5px rgba(255,255,255,0.5), 0 4px 6px rgba(0,0,0,0.05);
+        }
+
+        /* 1층 정면 (창문과 문) */
+        #store-front {
+            display: flex;
+            justify-content: space-between;
+            flex-grow: 1;
+            gap: 20px;
+        }
+
+        /* 양쪽 고정 창문 */
+        .window {
+            flex: 1;
+            background: linear-gradient(135deg, #d3cbbd 0%, #b8af9f 100%);
+            border-radius: 15px;
+            border: 8px solid #ffffff;
+            position: relative;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.1);
+        }
+
+        /* 중앙 자동문 프레임 */
+        #door-frame {
+            width: 350px;
+            background-color: #d1c8b6; /* 내부 배경색 */
+            border: 8px solid #ffffff;
+            border-radius: 15px 15px 0 0;
+            position: relative;
+            overflow: hidden; /* 문이 프레임 밖으로 나가지 않게 함 */
+            display: flex;
+            box-shadow: inset 0 10px 20px rgba(0,0,0,0.2);
+        }
+
+        /* 카페 내부 (문 뒤에 보이는 요소) */
+        #interior {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(to bottom, #e3d5c8, #d1c1b1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #7b6d5b;
+            font-size: 24px;
+            font-weight: bold;
+            z-index: 1;
+        }
+
+        /* 슬라이딩 자동문 */
+        .door {
+            width: 50%;
+            height: 100%;
+            background-color: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(5px);
+            border: 2px solid #ddd;
+            z-index: 2;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            letter-spacing: 2px;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.3);
+            transition: transform 1.5s cubic-bezier(0.4, 0, 0.2, 1); /* 부드러운 애니메이션 */
+        }
+
+        #door-left { border-right: 1px solid #aaa; transform-origin: left; }
+        #door-right { border-left: 1px solid #aaa; transform-origin: right; }
+
+        /* 문 열림 상태 클래스 */
+        .door.is-open#door-left { transform: translateX(-95%); }
+        .door.is-open#door-right { transform: translateX(95%); }
+
+        /* 하단 오른쪽 카메라 영역 */
+        #webcam-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background-color: white;
+            padding: 10px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            text-align: center;
+        }
+        
+        #webcam-container canvas {
+            border-radius: 5px;
+            display: block;
+        }
+
+        #label-container {
+            margin-top: 5px;
+            font-size: 12px;
+            color: #333;
+            font-weight: bold;
+        }
+
+        /* 카메라 오류 시 대체 버튼 (하단 중앙) */
+        #fallback-button {
+            display: none; /* 초기에는 숨김 */
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 15px 40px;
+            font-size: 20px;
+            font-weight: bold;
+            color: white;
+            background-color: #6d5b4b;
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            transition: background-color 0.3s;
+            z-index: 100;
+        }
+        #fallback-button:hover {
+            background-color: #524335;
+        }
+        
+        /* 시작 로딩 오버레이 */
+        #loading-overlay {
+            position: fixed;
+            top:0; left:0; right:0; bottom:0;
+            background: rgba(255,255,255,0.9);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        #loading-overlay button {
+            padding: 15px 30px;
+            font-size: 20px;
+            background: #4a4036;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="loading-overlay">
+        <h2>티처블 머신 자동문 모델</h2>
+        <p>카메라 접근을 허용해주세요.</p>
+        <button type="button" onclick="init()">모델 시작하기</button>
+    </div>
+
+    <div id="cafe-facade">
+        <div id="signage">☕ AURA CAFE</div>
+        <div id="store-front">
+            <div class="window"></div>
+            <div id="door-frame">
+                <div id="interior">환영합니다!</div>
+                <div id="door-left" class="door">OPEN</div>
+                <div id="door-right" class="door">OPEN</div>
+            </div>
+            <div class="window"></div>
+        </div>
+    </div>
+
+    <button id="fallback-button" onclick="openDoor()">자동문 열기 (수동)</button>
+
+    <div id="webcam-container">
+        <canvas id="canvas"></canvas>
+        <div id="label-container">대기 중...</div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/pose@0.8/dist/teachablemachine-pose.min.js"></script>
+    <script type="text/javascript">
+        const URL = "https://teachablemachine.withgoogle.com/models/miCZxzxgA/";
+        let model, webcam, ctx, labelContainer, maxPredictions;
+
+        // 상태 변수 관리
+        let isDoorOpen = false;
+        let openStateStartTime = null; 
+        let closeTimeout = null;
+
+        async function init() {
+            // 로딩 오버레이 숨기기
+            document.getElementById("loading-overlay").style.display = "none";
+            document.getElementById("label-container").innerHTML = "모델 로딩 중...";
+
+            const modelURL = URL + "model.json";
+            const metadataURL = URL + "metadata.json";
+
+            try {
+                model = await tmPose.load(modelURL, metadataURL);
+                maxPredictions = model.getTotalClasses();
+
+                const size = 200;
+                const flip = true; 
+                webcam = new tmPose.Webcam(size, size, flip);
+                
+                // 카메라 권한 요청 및 설정
+                await webcam.setup(); 
+                await webcam.play();
+                window.requestAnimationFrame(loop);
+
+                const canvas = document.getElementById("canvas");
+                canvas.width = size; canvas.height = size;
+                ctx = canvas.getContext("2d");
+                labelContainer = document.getElementById("label-container");
+                labelContainer.innerHTML = "";
+                for (let i = 0; i < maxPredictions; i++) {
+                    labelContainer.appendChild(document.createElement("div"));
+                }
+            } catch (error) {
+                console.error("웹캠 접근 실패:", error);
+                // 카메라 로드 실패 시 대체 버튼 및 안내 노출
+                document.getElementById("webcam-container").style.display = "none";
+                const fallbackBtn = document.getElementById("fallback-button");
+                fallbackBtn.style.display = "block";
+                alert("웹캠을 사용할 수 없습니다. 하단의 수동 버튼을 이용해주세요.");
+            }
+        }
+
+        async function loop(timestamp) {
+            webcam.update(); 
+            await predict();
+            window.requestAnimationFrame(loop);
+        }
+
+        async function predict() {
+            const { pose, posenetOutput } = await model.estimatePose(webcam.canvas);
+            const prediction = await model.predict(posenetOutput);
+
+            let isOpenDetected = false;
+            let openProbability = 0;
+
+            // 결과 업데이트 및 "OPEN" 확률 추출
+            for (let i = 0; i < maxPredictions; i++) {
+                const className = prediction[i].className.toUpperCase();
+                const probability = prediction[i].probability;
+                
+                // 화면 텍스트 업데이트
+                const classPrediction = className + ": " + probability.toFixed(2);
+                labelContainer.childNodes[i].innerHTML = classPrediction;
+
+                // 학습된 클래스 이름에 'OPEN'이 포함되어 있는지 확인
+                if (className.includes("OPEN")) {
+                    openProbability = probability;
+                }
+            }
+
+            // 자동문 로직
+            if (openProbability >= 0.70) { // 70% 이상일 때
+                if (openStateStartTime === null) {
+                    openStateStartTime = Date.now(); // 최초 70% 도달 시간 기록
+                } else {
+                    const elapsed = Date.now() - openStateStartTime;
+                    if (elapsed >= 1000 && !isDoorOpen) { 
+                        // 70% 이상 상태가 1초(1000ms) 유지되었고, 문이 닫혀있다면
+                        openDoor();
+                    }
+                }
+            } else {
+                // 70% 미만이거나 다른 자세일 경우 타이머 리셋
+                openStateStartTime = null; 
+            }
+
+            drawPose(pose);
+        }
+
+        function drawPose(pose) {
+            if (webcam.canvas) {
+                ctx.drawImage(webcam.canvas, 0, 0);
+                if (pose) {
+                    const minPartConfidence = 0.5;
+                    tmPose.drawKeypoints(pose.keypoints, minPartConfidence, ctx);
+                    tmPose.drawSkeleton(pose.keypoints, minPartConfidence, ctx);
+                }
+            }
+        }
+
+        // 문 열기 함수
+        function openDoor() {
+            const leftDoor = document.getElementById("door-left");
+            const rightDoor = document.getElementById("door-right");
+            
+            isDoorOpen = true;
+            leftDoor.classList.add("is-open");
+            rightDoor.classList.add("is-open");
+
+            // 기존에 예약된 닫힘 이벤트가 있다면 취소
+            if (closeTimeout) {
+                clearTimeout(closeTimeout);
+            }
+
+            // 5초(5000ms) 뒤에 문 닫기 이벤트 예약
+            closeTimeout = setTimeout(closeDoor, 5000);
+        }
+
+        // 문 닫기 함수
+        function closeDoor() {
+            const leftDoor = document.getElementById("door-left");
+            const rightDoor = document.getElementById("door-right");
+            
+            isDoorOpen = false;
+            leftDoor.classList.remove("is-open");
+            rightDoor.classList.remove("is-open");
+            openStateStartTime = null; // 타이머 초기화
+        }
+    </script>
+</body>
+</html>
